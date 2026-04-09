@@ -29,9 +29,9 @@ cd "$(dirname "$0")"
 CONFIG=conf/timeseries-filodb-server$DOWNSAMPLE.conf
 
 if [ $ORDINAL -eq "0" ]; then
-  ADDL_JAVA_OPTS=" -Dfilodb.cluster-discovery.localhost-ordinal=0"
+  ADDL_JAVA_OPTS=" -Dfilodb.cluster-discovery.localhost-ordinal=0 -DlogSuffix=0"
 elif [ $ORDINAL -eq "1" ]; then
-  ADDL_JAVA_OPTS=" -Dfilodb.cluster-discovery.localhost-ordinal=1 -Dakka.remote.netty.tcp.port=3552 -Dfilodb.http.bind-port=0 -Dkamon.environment.service=filodb-local2"
+  ADDL_JAVA_OPTS=" -Dfilodb.cluster-discovery.localhost-ordinal=1 -Dakka.remote.netty.tcp.port=3552 -Dfilodb.http.bind-port=0 -Dkamon.environment.service=filodb-local2 -DlogSuffix=1"
 else
   echo "Only ordinals 0 and 1 are supported"
   exit

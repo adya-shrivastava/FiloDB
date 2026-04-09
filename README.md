@@ -247,14 +247,14 @@ Now run the time series generator. This will ingest 20 time series (the default)
 ./dev-gateway.sh --gen-gauge-data conf/timeseries-dev-source.conf
 ```
 
-NOTE: Check logs/gateway-server.log for logs.
+NOTE: Check logs/filodb-gateway.log for logs.
 
 At this point, you should be able to confirm such a message in the server logs: `KAMON counter name=memstore-rows-ingested count=4999`
 
 Now you are ready to query FiloDB for the ingested data. The following command should return matching subset of the data that was ingested by the producer.
 
 ```
-./filo-cli --host 127.0.0.1 --dataset prometheus --promql 'heap_usage0{_ws_="demo", _ns_="App-2"}'
+./filo-cli --host 127.0.0.1 --dataset prometheus --promql 'heap_usage0{_ws_="demo", _ns_="App-0"}'
 ```
 
 You can also look at Cassandra to check for persisted data. Look at the tables in `filodb` and `filodb-admin` keyspaces.

@@ -8,11 +8,23 @@
         </encoder>
     </appender>
 
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR:-logs}/filodb-server-${logSuffix:-0}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR:-logs}/filodb-server-${logSuffix:-0}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>[%date{ISO8601}] %-5level %thread %logger{26} [%X{akkaSource}] - %msg%n</pattern>
+        </encoder>
+    </appender>
+
     <logger name="filodb.coordinator" level="INFO" />
     <logger name="filodb.core" level="DEBUG" />
     <logger name="filodb.memory" level="DEBUG" />
     <logger name="filodb.query" level="DEBUG" />
     <logger name="filodb.coordinator.KamonMetricsLogReporter" level="off" />
+<!--    <logger name="filodb.coordinator.KamonMetricsLogReporter" level="debug" />-->
     <logger name="filodb.coordinator.KamonSpanLogReporter" level="off" />
     <logger name="filodb.core.memstore.LuceneMetricsRouter" level="off" />
     <!-- <logger name="com.esotericsoftware.minlog" level="DEBUG" /> -->
@@ -29,5 +41,6 @@
 
     <root level="INFO">
         <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
     </root>
 </configuration>
