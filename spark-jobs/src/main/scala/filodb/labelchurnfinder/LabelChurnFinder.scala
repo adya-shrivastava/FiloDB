@@ -65,7 +65,7 @@ object LabelChurnFinderMain extends App {
   labelsPublished.increment(labelsAcc.value)
   kafkaFailures.increment(failuresAcc.value)
   jobDuration.record(System.currentTimeMillis() - jobStartMs)
-
+  Thread.sleep(62000) // allow Kamon MosaicReporter periodic tick to fire and complete gRPC publish before shutdown
   spark.stop()
 }
 
