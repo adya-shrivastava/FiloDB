@@ -14,7 +14,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql.{functions, DataFrame, Dataset, SparkSession}
 import org.apache.spark.sql.functions._
 
-import filodb.cassandra.columnstore.{CassandraColumnStore, CassandraTokenRangeSplit}
+import filodb.cassandra.columnstore.CassandraTokenRangeSplit
 import filodb.coordinator.KamonShutdownHook
 import filodb.core.DatasetRef
 import filodb.core.metadata.Schemas
@@ -109,10 +109,10 @@ class LabelChurnFinder(dsSettings: DownsamplerSettings) extends Serializable wit
 
   import LabelChurnFinder._
 
-  // lazy since they get initialized and used in executors as well
-  @transient lazy private val session = DownsamplerContext.getOrCreateCassandraSession(dsSettings.cassandraConfig)
-  @transient lazy private[labelchurnfinder] val colStore =
-    new CassandraColumnStore(dsSettings.filodbConfig, sched, session, false)(sched)
+
+  private[labelchurnfinder] def colStore =
+    DownsamplerContext.getOrCreateCassandraColumnStore(dsSettings.filodbConfig, dsSettings.cassandraConfig)(sched)
+
   @transient lazy val datasetName = dsSettings.filodbConfig.as[String]("labelchurnfinder.raw-dataset-name")
   @transient lazy val datasetRef = DatasetRef(datasetName)
   @transient lazy private[labelchurnfinder] val filters = dsSettings.filodbConfig
