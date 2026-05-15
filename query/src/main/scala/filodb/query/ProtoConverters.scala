@@ -428,6 +428,7 @@ object ProtoConverters {
       builder.setDataBytesScanned(stat.dataBytesScanned.get())
       builder.setTimeSeriesScanned(stat.timeSeriesScanned.get())
       builder.setCpuNanos(stat.cpuNanos.get())
+      builder.setSamplesScanned(stat.samplesScanned.get())
       builder.build()
     }
   }
@@ -439,13 +440,14 @@ object ProtoConverters {
       stat.dataBytesScanned.addAndGet(statGrpc.getDataBytesScanned)
       stat.resultBytes.addAndGet(statGrpc.getResultBytes)
       stat.cpuNanos.addAndGet(statGrpc.getCpuNanos)
+      stat.samplesScanned.addAndGet(statGrpc.getSamplesScanned)
       stat
     }
   }
   implicit class QueryStatsToProtoConverter(stats: QueryStats) {
     def toProto: GrpcMultiPartitionQueryService.QueryResultStats = {
       val builder = GrpcMultiPartitionQueryService.QueryResultStats.newBuilder()
-      stats.stat.foreach {
+      stats.foreach {
         case (key, stat)  =>
           builder.putStats( key.mkString("##@##"), stat.toProto)
       }
@@ -457,7 +459,7 @@ object ProtoConverters {
     def fromProto: QueryStats = {
       val qs = QueryStats()
       statGrpc.getStatsMap.forEach {
-        case (key, stat)  =>  qs.stat.put(key.split("##@##").toList, stat.fromProto)
+        case (key, stat)  =>  qs.put(key.split("##@##").toList, stat.fromProto)
       }
       qs
     }
