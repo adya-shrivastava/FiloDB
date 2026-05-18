@@ -47,6 +47,12 @@ object QueryConfig {
         stitchDisabledTenantColumn
     )
 
+    val samplesScannedConfig = if (queryConfig.hasPath("samples-scanned")) {
+      SamplesScannedConfig(queryConfig.getConfig("samples-scanned"))
+    } else {
+      SamplesScannedConfig()
+    }
+
     val scCachingEnabled = queryConfig.as[Boolean]("single.cluster.cache.enabled")
     val scCacheSize = queryConfig.as[Int]("single.cluster.cache.cache-size")
     val cachingConfig = CachingConfig(scCachingEnabled, scCacheSize)
@@ -62,7 +68,7 @@ object QueryConfig {
       grpcDenyList.split(",").map(_.trim.toLowerCase).toSet,
       flightDenyList.split(",").map(_.trim.toLowerCase).toSet,
       None,
-      containerOverrides, rc, cachingConfig, enableLocalDispatch)
+      containerOverrides, rc, cachingConfig, enableLocalDispatch, samplesScannedConfig)
   }
   // scalastyle:on method.length
 
@@ -87,6 +93,70 @@ object QueryConfig {
                                              Map("filodb-query-exec-aggregate-large-container" -> 65536,
                                                   "filodb-query-exec-metadataexec"             -> 8192))
 }
+
+object SamplesScannedConfig {
+  // scalastyle:off method.length
+  def apply(config: Config): SamplesScannedConfig = {
+    val defaults = SamplesScannedConfig()
+    SamplesScannedConfig(
+      config.as[Option[Boolean]]("leaf-samples-enabled")
+        .getOrElse(defaults.leafSamplesEnabled),
+      config.as[Option[Boolean]]("exec-result-samples-enabled")
+        .getOrElse(defaults.execResultSamplesEnabled),
+      config.as[Option[Boolean]]("exec-child-samples-enabled")
+        .getOrElse(defaults.execChildSamplesEnabled),
+      config.as[Option[Boolean]]("rvt-samples-enabled")
+        .getOrElse(defaults.rvtSamplesEnabled),
+      config.as[Option[Boolean]]("rvt-child-samples-enabled")
+        .getOrElse(defaults.rvtChildSamplesEnabled),
+      config.as[Option[Boolean]]("srv-samples-enabled")
+        .getOrElse(defaults.srvSamplesEnabled),
+
+      config.as[Option[Double]]("fixed-row-multiplier")
+        .orElse(defaults.fixedRowMultiplier),
+      config.as[Option[Double]]("default-row-multiplier")
+        .getOrElse(defaults.defaultRowMultiplier),
+      config.as[Option[Double]]("histogram-row-multiplier")
+        .getOrElse(defaults.histogramRowMultiplier),
+      config.as[Option[Double]]("exponential-histogram-row-multiplier")
+        .getOrElse(defaults.exponentialHistogramRowMultiplier),
+
+      config.as[Option[Double]]("default-samples-per-row")
+        .getOrElse(defaults.defaultSamplesPerRow),
+      config.as[Option[Double]]("default-samples-per-series")
+        .getOrElse(defaults.defaultSamplesPerSeries),
+      config.as[Option[Double]]("default-samples-per-part-key-byte")
+        .getOrElse(defaults.defaultSamplesPerPartKeyByte),
+      config.as[Option[Map[String, Double]]]("class-to-samples-per-row")
+        .map { classNameToVal => classNameToVal.map { case (name, value) => Class.forName(name) -> value }}
+        .getOrElse(defaults.classToSamplesPerRow),
+      config.as[Option[Map[String, Double]]]("class-to-samples-per-series")
+        .map { classNameToVal => classNameToVal.map { case (name, value) => Class.forName(name) -> value } }
+        .getOrElse(defaults.classToSamplesPerSeries),
+      config.as[Option[Map[String, Double]]]("class-to-samples-per-part-key-byte")
+        .map { classNameToVal => classNameToVal.map { case (name, value) => Class.forName(name) -> value } }
+        .getOrElse(defaults.classToSamplesPerPartKeyByte),
+
+      config.as[Option[Double]]("default-samples-per-child-row")
+        .getOrElse(defaults.defaultSamplesPerChildRow),
+      config.as[Option[Double]]("default-samples-per-child-series")
+        .getOrElse(defaults.defaultSamplesPerChildSeries),
+      config.as[Option[Double]]("default-samples-per-child-part-key-byte")
+        .getOrElse(defaults.defaultSamplesPerPartKeyByte),
+      config.as[Option[Map[String, Double]]]("class-to-samples-per-child-row")
+        .map { classNameToVal => classNameToVal.map { case (name, value) => Class.forName(name) -> value } }
+        .getOrElse(defaults.classToSamplesPerChildRow),
+      config.as[Option[Map[String, Double]]]("class-to-samples-per-child-series")
+        .map { classNameToVal => classNameToVal.map { case (name, value) => Class.forName(name) -> value } }
+        .getOrElse(defaults.classToSamplesPerChildSeries),
+      config.as[Option[Map[String, Double]]]("class-to-samples-per-child-part-key-byte")
+        .map { classNameToVal => classNameToVal.map { case (name, value) => Class.forName(name) -> value } }
+        .getOrElse(defaults.classToSamplesPerChildPartKeyByte)
+    )
+  }
+  //scalastyle:on method.length
+}
+
 case class RoutingConfig(
                           supportRemoteRawExport: Boolean                = false,
                           maxRemoteRawExportTimeRange: FiniteDuration    = 3 days,
@@ -124,6 +194,8 @@ case class CachingConfig(
  * @param rvtSamplesEnabled toggle whether-or-not RangeVectorTransformer samples are counted.
  * @param rvtChildSamplesEnabled toggle whether-or-not RangeVectorTransformer child samples are counted.
  * @param srvSamplesEnabled toggle whether-or-not SerializedRangeVector samples are counted.
+ * @param fixedRowMultiplier if present, overrides other row-multiplier configs. This single multiplier is applied
+ *                           regardless of how many schema columns are present; the usual sum is skipped.
  * @param defaultRowMultiplier multiplier applied to row count for all non-histogram columns value types.
  * @param histogramRowMultiplier multiplier applied to row count for all non-
  *                               exponential histogram columns value types.
@@ -159,6 +231,7 @@ case class SamplesScannedConfig(
                                  rvtChildSamplesEnabled: Boolean = false,
                                  srvSamplesEnabled: Boolean = false,
 
+                                 fixedRowMultiplier: Option[Double] = None,
                                  defaultRowMultiplier: Double = 1.0,
                                  histogramRowMultiplier: Double = 25.0,
                                  exponentialHistogramRowMultiplier: Double = 50.0,
