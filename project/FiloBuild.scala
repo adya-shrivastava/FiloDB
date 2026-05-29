@@ -43,6 +43,8 @@ object Submodules {
       commonSettings,
       name := "filodb-core",
       scalacOptions += "-language:postfixOps",
+      // Remove -Xfatal-warnings for core module due to unavoidable JDK 21 deprecations in Unsafe API
+      scalacOptions := scalacOptions.value.filterNot(_ == "-Xfatal-warnings"),
       assemblySettings,
       libraryDependencies ++= coreDeps
     )
@@ -127,7 +129,8 @@ object Submodules {
     .settings(
       commonSettings,
       name := "spark-jobs",
-      fork in Test := false,
+      fork in Test := true,
+      Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat,
       baseDirectory in Test := file("."),   // since we have a config using FiloDB project root as relative path
       assemblySettings,
       scalacOptions += "-language:postfixOps",
@@ -218,6 +221,7 @@ object Submodules {
       commonSettings,
       name := "filodb-gatling",
       libraryDependencies ++= gatlingDeps,
-      publish := {}
+      publish := {},
+      publishM2 := {}
     )
 }
