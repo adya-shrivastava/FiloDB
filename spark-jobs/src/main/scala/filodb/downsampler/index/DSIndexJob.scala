@@ -3,9 +3,7 @@ package filodb.downsampler.index
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
 
-import kamon.Kamon
 import monix.reactive.Observable
 
 import filodb.cassandra.columnstore.CassandraColumnStore
@@ -93,8 +91,8 @@ class DSIndexJob(dsSettings: DownsamplerSettings,
 
     // quick & dirty hack to ensure that the completed metric gets published
     if (dsSettings.shouldSleepForMetricsFlush)
-      Await.result(Kamon.stopModules(), 62.seconds)
-
+    // KamonShutdownHook.registerShutdownHook() is set. We should not call Kamon.stopModules() again.
+      Thread.sleep(62000) // quick & dirty hack to ensure that the completed metric gets published
   }
 
   def migrateWithDownsamplePartKeys(partKeys: Observable[PartKeyRecord], shard: Int,
