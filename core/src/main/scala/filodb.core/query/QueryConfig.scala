@@ -8,7 +8,6 @@ import scala.jdk.CollectionConverters._
 import com.typesafe.config.Config
 import net.ceedubs.ficus.Ficus._
 
-
 object QueryConfig {
   val DefaultVectorsLimit = 150
   // scalastyle:off method.length
@@ -20,11 +19,11 @@ object QueryConfig {
     val routingConfig = queryConfig.getConfig("routing")
     val parser = queryConfig.as[String]("parser")
     val translatePromToFilodbHistogram = queryConfig.getBoolean("translate-prom-to-filodb-histogram")
-    val fasterRateEnabled = queryConfig.as[Option[Boolean]]("faster-rate").getOrElse(false)
     val enforceResultByteLimit = queryConfig.as[Boolean]("enforce-result-byte-limit")
     val allowPartialResultsMetadataQuery = queryConfig.getBoolean("allow-partial-results-metadataquery")
     val allowPartialResultsRangeQuery = queryConfig.getBoolean("allow-partial-results-rangequery")
     val grpcDenyList = queryConfig.getString("grpc.partitions-deny-list")
+    val flightDenyList = queryConfig.getString("grpc.flight.partitions-deny-list")
     val containerOverrides = queryConfig.as[Map[String, Int]]("container-size-overrides")
     val numRvsPerResultMessage = queryConfig.getInt("num-rvs-per-result-message")
 
@@ -54,13 +53,14 @@ object QueryConfig {
     val enableLocalDispatch = queryConfig.getBoolean("enable-local-dispatch")
 
     QueryConfig(askTimeout, staleSampleAfterMs, minStepMs, fastReduceMaxWindows, parser, translatePromToFilodbHistogram,
-      fasterRateEnabled, routingConfig.as[Option[String]]("partition_name"),
+      true, routingConfig.as[Option[String]]("partition_name"),
       routingConfig.as[Option[Long]]("remote.http.timeout"),
       routingConfig.as[Option[String]]("remote.http.endpoint"),
       routingConfig.as[Option[String]]("remote.grpc.endpoint"),
       numRvsPerResultMessage, enforceResultByteLimit,
       allowPartialResultsRangeQuery, allowPartialResultsMetadataQuery,
       grpcDenyList.split(",").map(_.trim.toLowerCase).toSet,
+      flightDenyList.split(",").map(_.trim.toLowerCase).toSet,
       None,
       containerOverrides, rc, cachingConfig, enableLocalDispatch)
   }
@@ -76,7 +76,6 @@ object QueryConfig {
                                            fastReduceMaxWindows = 50,
                                            parser = "antlr",
                                            translatePromToFilodbHistogram = true,
-                                           fasterRateEnabled = true,
                                            partitionName = None,
                                            remoteHttpTimeoutMs = None,
                                            remoteHttpEndpoint = None,
@@ -88,6 +87,7 @@ object QueryConfig {
                                              Map("filodb-query-exec-aggregate-large-container" -> 65536,
                                                   "filodb-query-exec-metadataexec"             -> 8192))
 }
+
 case class RoutingConfig(
                           supportRemoteRawExport: Boolean                = false,
                           maxRemoteRawExportTimeRange: FiniteDuration    = 3 days,
@@ -109,7 +109,7 @@ case class QueryConfig(askTimeout: FiniteDuration,
                        fastReduceMaxWindows: Int,
                        parser: String,
                        translatePromToFilodbHistogram: Boolean,
-                       fasterRateEnabled: Boolean,
+                       fasterRateEnabled: Boolean = true, // deprecated and not used anymore
                        partitionName: Option[String],
                        remoteHttpTimeoutMs: Option[Long],
                        remoteHttpEndpoint: Option[String],
@@ -119,6 +119,7 @@ case class QueryConfig(askTimeout: FiniteDuration,
                        allowPartialResultsRangeQuery: Boolean = false,
                        allowPartialResultsMetadataQuery: Boolean = true,
                        grpcPartitionsDenyList: Set[String] = Set.empty,
+                       flightPartitionsDenyList: Set[String] = Set.empty,
                        plannerSelector: Option[String] = None,
                        recordContainerOverrides: Map[String, Int] = Map.empty,
                        routingConfig: RoutingConfig               = RoutingConfig(),

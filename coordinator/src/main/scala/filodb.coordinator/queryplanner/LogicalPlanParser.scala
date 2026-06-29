@@ -51,7 +51,7 @@ object LogicalPlanParser {
         val metricNameNoQuotes = value.replaceAll("^\"|\"$", "")
         s"$metricNameNoQuotes$colSuffix"
       }.get
-    val metricCanPrefixBraces = PREPENDABLE_METRIC_NAME_REGEX.pattern.matcher(fullMetricName).matches()
+    val metricCanPrefixBraces = PREPENDABLE_METRIC_NAME_REGEX.matches(fullMetricName)
 
     val filterStringWithoutMetric = filters
       .filter { case (name, op, value) => name != PromMetricLabel }
@@ -76,7 +76,7 @@ object LogicalPlanParser {
     } else {  // Metric cannot prepend braces.
       // Add a metric filter inside the curly braces.
       val (filterName, filterOp, filterVal) = metricFilter.get
-      val metricFilterString = s"$filterName$filterOp$Quotes$fullMetricName$Quotes"
+      val metricFilterString = s"$filterName$filterOp\"${fullMetricName}\""
       if (filterStringWithoutMetric.nonEmpty) {
         s"$OpeningCurlyBraces$filterStringWithoutMetric,$metricFilterString$ClosingCurlyBraces"
       } else {
@@ -246,12 +246,15 @@ object LogicalPlanParser {
     s"$periodicSeriesQuery$sqClause$offset$at"
   }
 
+  private def limitToQuery(ps: ApplyLimitFunction): String = s"${convertToQuery(ps.vectors)} limit ${ps.limit}"
+
   def metadataMatchToQuery(lp: MetadataQueryPlan): String = {
     s"$OpeningCurlyBraces${
       getFiltersFromColumnFilters(lp.filters).map(f => f._1 + f._2 + f._3).mkString(Comma)
     }$ClosingCurlyBraces"
   }
 
+  // scalastyle:off cyclomatic.complexity
   def convertToQuery(logicalPlan: LogicalPlan): String = {
     logicalPlan match {
       case lp: RawSeries                   => rawSeriesLikeToQuery(lp, true)
@@ -272,8 +275,12 @@ object LogicalPlanParser {
       case lp: SubqueryWithWindowing       => subqueryWithWindowingToQuery(lp)
       case lp: TopLevelSubquery            => topLevelSubqueryToQuery(lp)
       case lp: MetadataQueryPlan           => metadataMatchToQuery(lp)
-      case _                               => throw new UnsupportedOperationException(s"Logical plan to query not " +
-        s"supported for ${logicalPlan}")
+      case lp: ApplyLimitFunction          => limitToQuery(lp)
+      case lp: RawChunkMeta                => throw new UnsupportedOperationException(s"RawChunkMeta: convertToQuery")
+      case lp: ApplyInstantFunctionRaw     =>
+        throw new UnsupportedOperationException(s"ApplyInstantFunctionRaw: convertToQuery")
+      case lp: TsCardinalities             =>
+        throw new UnsupportedOperationException(s"TsCardinalities: convertToQuery")
     }
   }
 }

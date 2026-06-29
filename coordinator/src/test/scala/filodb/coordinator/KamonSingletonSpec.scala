@@ -1,10 +1,8 @@
 package filodb.coordinator
 
-import org.scalatest.{BeforeAndAfterEach}
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterEach, FunSpec, Matchers}
 
-class KamonSingletonSpec extends AnyFunSpec with Matchers with BeforeAndAfterEach {
+class KamonSingletonSpec extends FunSpec with Matchers with BeforeAndAfterEach {
 
   override def beforeEach(): Unit = {
     // Reset the initialization state before each test
@@ -27,6 +25,7 @@ class KamonSingletonSpec extends AnyFunSpec with Matchers with BeforeAndAfterEac
 
     it("should be thread-safe") {
       import scala.concurrent.{ExecutionContext, Future}
+      import scala.concurrent.duration._
       import scala.util.{Failure, Success}
       
       implicit val ec: ExecutionContext = ExecutionContext.global
