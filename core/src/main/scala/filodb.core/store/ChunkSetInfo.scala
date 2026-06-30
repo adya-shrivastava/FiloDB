@@ -303,7 +303,7 @@ trait ChunkInfoIterator { base: ChunkInfoIterator =>
     try {
       val buf = new collection.mutable.ArrayBuffer[ChunkSetInfo]
       while (hasNext) { buf += nextInfo }
-      buf
+      buf.toSeq
     } catch {
       case e: Throwable => close(); throw e;
     }
@@ -330,13 +330,16 @@ class ElementChunkInfoIterator(elIt: ElementIterator) extends ChunkInfoIterator 
 
 object CountingChunkInfoIterator {
   val dataBytesScannedCtr = FilodbMetrics.bytesCounter("data-scanned-by-queries")
-  val numSamplesScannedCtr = FilodbMetrics.counter("num-samples-scanned-by-queries")
 }
 
+/**
+ * @param samplesScannedRowCountConsumer accepts a total row count; tracks the samples scanned
+ *                                       (see {@link filodb.core.query.SamplesScannedConfig} for details).
+ */
 class CountingChunkInfoIterator(base: ChunkInfoIterator,
                                 columnIDs: Array[Int],
                                 dataBytesScannedCtr: AtomicLong,
-                                samplesScannedCtr: AtomicLong,
+                                samplesScannedRowCountConsumer: Long => Unit,
                                 maxBytesScanned: Long,
                                 queryId: String) extends ChunkInfoIterator {
   override def close(): Unit = base.close()
@@ -345,19 +348,24 @@ class CountingChunkInfoIterator(base: ChunkInfoIterator,
     val reader = base.nextInfoReader
     var bytesRead = 0
     var bucketsFactor = 1
-    columnIDs.foreach { c =>
-      bytesRead += BinaryVector.totalBytes(reader.vectorAccessor(c), reader.vectorAddress(c))
-      if (BinaryVector.majorVectorType(reader.vectorAccessor(c), reader.vectorAddress(c))
+
+    // Avoiding `foreach` and `for` to prevent Range allocations.
+    var iCol = 0
+    while (iCol < columnIDs.size) {
+      val colId = columnIDs(iCol)
+      bytesRead += BinaryVector.totalBytes(reader.vectorAccessor(colId), reader.vectorAddress(colId))
+      if (BinaryVector.majorVectorType(reader.vectorAccessor(colId), reader.vectorAddress(colId))
                     == WireFormat.VECTORTYPE_HISTOGRAM) {
         // since histogram has several buckets, include a factor when counting samples
         bucketsFactor = 20 // TODO fixed to avoid performance issues in opening hist vector here. Make it better later.
       }
+      iCol += 1
     }
 
     // Why two counters ?
     // 1. query stats counter to meter usage by ws/ns. This will eventually be sent as part of query result.
     dataBytesScannedCtr.addAndGet(bytesRead)
-    samplesScannedCtr.addAndGet(reader.numRows * bucketsFactor)
+    samplesScannedRowCountConsumer(reader.numRows)
     if (dataBytesScannedCtr.get() > maxBytesScanned) {
       val exMessage = s"Actual raw data bytes scan of ${dataBytesScannedCtr.get()} bytes exceeds limit of " +
         s"${maxBytesScanned} bytes queried per shard. " +
@@ -369,7 +377,7 @@ class CountingChunkInfoIterator(base: ChunkInfoIterator,
 
     // 2. kamon counter to track per instance. It is not broken down by shard/dataset. Doing that needs more memory
     CountingChunkInfoIterator.dataBytesScannedCtr.increment(bytesRead)
-    CountingChunkInfoIterator.numSamplesScannedCtr.increment(reader.numRows * bucketsFactor)
+    // NOTE: samples-scanned are counted from within QueryUtils.
     reader
   }
   override def nextInfo: ChunkSetInfo = {
